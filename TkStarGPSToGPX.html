@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML to GPX Converter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: 30px auto;
+        }
+        h1, h3 {
+            color: #0056b3;
+        }
+        input[type="file"] {
+            display: block;
+            margin-bottom: 15px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #downloadLink {
+            display: none; /* Hidden by default */
+            background-color: #28a745;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 4px;
+            text-decoration: none;
+            margin-top: 15px;
+            display: inline-block; /* Show as block when active */
+        }
+        #downloadLink:hover {
+            background-color: #218838;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box; /* Include padding in width */
+            margin-top: 15px;
+            font-family: monospace;
+            white-space: pre;
+            overflow-wrap: normal;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>HTML to GPX Converter</h1>
+<div>
+    <p>
+        <a href="https://www.mytkstar.net/index.aspx" target="_blank">Visit TKStar</a>
+    </p>
+    <ol>
+        <li>Login with device ID password 123456</li>
+        <li>Select PlaybackMode</li>
+        <li>Select dates, Click Play, let it finish</li>
+        <li>Click "Download track"</li>
+        <li>When download complete load the file to this page, convert and use your GPX</li>
+    </ol>
+</div>
+        <p>Select your HTML file (like 'short.html') that contains GPS route details in a table, and convert it to a GPX track file.</p>
+        
+        <input type="file" id="htmlFileInput" accept=".html,.htm, .xls">
+        <button id="convertButton" disabled>Convert to GPX</button>
+        <a id="downloadLink" download="route.gpx">Download GPX File</a>
+        
+        <h3>GPX Output (for review):</h3>
+        <textarea id="gpxOutput" rows="15" cols="80" readonly></textarea>
+    </div>
+
+    <script>
+        const htmlFileInput = document.getElementById('htmlFileInput');
+        const convertButton = document.getElementById('convertButton');
+        const downloadLink = document.getElementById('downloadLink');
+        const gpxOutputTextarea = document.getElementById('gpxOutput');
+
+        let uploadedHtmlContent = null; // Variable to store the content of the selected HTML file
+
+        // Event listener for when a file is selected
+        htmlFileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader(); // Create a FileReader to read the file content
+                reader.onload = (e) => {
+                    uploadedHtmlContent = e.target.result; // Store the file content
+                    convertButton.disabled = false; // Enable the convert button
+                    gpxOutputTextarea.value = "File loaded. Click 'Convert to GPX' to proceed.";
+                    downloadLink.style.display = 'none'; // Hide download link until conversion
+                };
+                reader.onerror = () => {
+                    gpxOutputTextarea.value = 'Error reading file.';
+                    uploadedHtmlContent = null;
+                    convertButton.disabled = true;
+                    downloadLink.style.display = 'none';
+                };
+                reader.readAsText(file); // Read the file as text
+            } else {
+                uploadedHtmlContent = null;
+                convertButton.disabled = true;
+                gpxOutputTextarea.value = '';
+                downloadLink.style.display = 'none';
+            }
+        });
+
+        // Event listener for the convert button
+        convertButton.addEventListener('click', () => {
+            if (uploadedHtmlContent) {
+                try {
+                    const gpxContent = htmlToGpx(uploadedHtmlContent); // Perform the conversion
+                    gpxOutputTextarea.value = gpxContent; // Display the GPX content
+
+                    // Create a Blob from the GPX content and a URL for download
+                    const blob = new Blob([gpxContent], { type: 'application/gpx+xml' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    downloadLink.href = url; // Set the download link URL
+                    downloadLink.style.display = 'inline-block'; // Show the download link
+                    downloadLink.textContent = 'Download route.gpx'; // Set link text
+                } catch (error) {
+                    gpxOutputTextarea.value = 'Error converting to GPX: ' + error.message;
+                    downloadLink.style.display = 'none';
+                    console.error("Conversion error:", error);
+                }
+            } else {
+                gpxOutputTextarea.value = 'No HTML file loaded. Please select a file first.';
+            }
+        });
+
+        /**
+         * Parses HTML table data and converts it into a GPX XML string.
+         * Assumes the HTML table structure from your provided 'short.html' example.
+         * The function uses DOMParser for robust HTML parsing.
+         *
+         */
+        function htmlToGpx(htmlContent) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlContent, 'text/html');
+
+            const gpxHeader = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="HTML to GPX Converter"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.topografix.com/GPX/1/1"
+    xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+    <trk>
+        <name>Giannis-History route</name>
+        <trkseg>`;
+
+            const gpxFooter = `        </trkseg>
+    </trk>
+</gpx>`;
+
+            const gpxPoints = [];
+            const rows = doc.querySelectorAll('table tr');
+            let headerFound = false;
+
+            rows.forEach(row => {
+                const thCells = row.querySelectorAll('th');
+                const tdCells = row.querySelectorAll('td');
+
+                // Identify the header row to know when data rows begin
+                if (!headerFound) {
+                    // Check for the specific header texts "No.", "Position time"
+                    if (thCells.length > 1 && thCells[0].textContent.trim() === 'No.' && thCells[1].textContent.trim() === 'Position time') {
+                        headerFound = true;
+                        return; // Skip the header row itself
+                    }
+                    // Also skip other non-data rows like the ones with colspan
+                    if (tdCells.length > 0 && tdCells[0].hasAttribute('colspan')) {
+                        return; 
+                    }
+                }
+                
+                // Process data rows once the header has been found
+                // Data rows are identified by having at least 4 'th' cells (No., Time, Lat, Lon)
+                if (headerFound && thCells.length >= 4) {
+                    const positionTimeStr = thCells[1].textContent.trim(); // "2025-05-10 07:33:02"
+                    const latStr = thCells[2].textContent.trim();           // "39.63515"
+                    const lonStr = thCells[3].textContent.trim();           // "20.83468"
+
+                    try {
+                        const lat = parseFloat(latStr);
+                        const lon = parseFloat(lonStr);
+                        
+                        // Basic validation: ensure latitude and longitude are valid numbers
+                        if (isNaN(lat) || isNaN(lon)) {
+                            console.warn(`Skipping row due to invalid coordinates: Lat='${latStr}', Lon='${lonStr}'`);
+                            return; // Skip this row if coordinates are not numbers
+                        }
+                        const trkpt = `            <trkpt lat="${lat}" lon="${lon}"/>`;
+                        gpxPoints.push(trkpt);
+                    } catch (e) {
+                        console.error("Error parsing row data:", e);
+                    }
+                }
+            });
+
+            if (gpxPoints.length === 0 && headerFound) {
+                 console.warn("No track points found after parsing. Please check if your HTML data rows are correctly structured.");
+            } else if (!headerFound) {
+                 throw new Error("Could not find the expected table header row (e.g., 'No.', 'Position time', 'Lat', 'Lon') in the HTML document. Please ensure the HTML structure matches the expected format.");
+            }
+
+            return gpxHeader + "\n" + gpxPoints.join("\n") + "\n" + gpxFooter;
+        }
+    </script>
+</body>
+</html>
